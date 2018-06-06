@@ -34,15 +34,19 @@ namespace InMemoryCache
             {
                 bool keyExists = _cache.ContainsKey(key);
 
+                TKey evicted = default(TKey);
                 if (keyExists == false && _cache.Count >= _cacheSizeLimit)
                 {
-                    var oldest = _cache.OrderBy(x => x.Value._modified).First().Key;
+                    //var oldest = _cache.OrderBy(x => x.Value._modified).First().Key;
                     var oldestByKeyList = _lifetimeCache.First();
-                    var same = oldest.Equals(oldestByKeyList);
-                    if (same == false)
-                    {
-                        throw new Exception("key mismatch");
-                    }
+                    evicted = oldestByKeyList;
+                    _lifetimeCache.Remove(oldestByKeyList);
+                    //var same = oldest.Equals(oldestByKeyList);
+
+                    //if (same == false)
+                    //{
+                    //    throw new Exception("key mismatch");
+                    //}
                 }
 
                 CacheItem<TValue> cacheValue = new CacheItem<TValue>(value);
@@ -69,11 +73,21 @@ namespace InMemoryCache
                     _lifetimeCache.Add(key);
                 }
 
+                Console.ForegroundColor = ConsoleColor.DarkGreen;
+                Console.WriteLine($"Cache size : {_cache.Count}/{_cacheSizeLimit}");
+                if (evicted.Equals(default(TKey)) == true)
+                {
+                    Console.WriteLine($"Current oldest key : {_lifetimeCache.First()}");
+                }
+                else
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                    Console.WriteLine($"Evicted key:{ evicted}, Next oldest key : {_lifetimeCache.First()}");
+                }
+                Console.ResetColor();
 
             }
 
-
-            //throw new NotImplementedException();
         }
 
         public bool TryGetValue(TKey key, out TValue value)

@@ -26,7 +26,7 @@ namespace TestConsole
 
                 mc.TryGetValue(index, out TestComplexClass insertedValue);
 
-                Console.WriteLine(insertedValue.RandomValue);
+                Console.WriteLine($"Inserted GUID {insertedValue.RandomValue}");
 
             });
 
