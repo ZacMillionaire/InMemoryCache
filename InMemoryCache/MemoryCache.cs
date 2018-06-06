@@ -16,6 +16,10 @@ namespace InMemoryCache
 
         private readonly object _cacheLock = new object();
 
+        public int _inserts = 0;
+        public int _updates = 0;
+        public int _evictions = 0;
+        public int _misses = 0;
 
 
         public MemoryCache(int maxCacheElements)
@@ -42,19 +46,26 @@ namespace InMemoryCache
                 {
                     var oldestByKeyList = _lifetimeCache[0];
                     _cache.TryRemove(oldestByKeyList, out evicted);
-                    Console.WriteLine($"    [EVICT] Evicted oldest key : {oldestByKeyList}");
+                    //Console.WriteLine($"    [EVICT] Evicted oldest key : {oldestByKeyList}");
                     _lifetimeCache.Remove(oldestByKeyList);
+                    _evictions++;
                 }
 
                 TValue cacheValue = value;
+
+                if (keyExists == false)
+                {
+                    _inserts++;
+                }
 
                 _cache.AddOrUpdate(key, cacheValue, (k, existing) =>
                  {
                      // If we've seen the key before, its an update, so remove the old entry
                      // in our tracking list before we reinsert the key at the end
                      _lifetimeCache.Remove(key);
+                     _updates++;
                      //existing.Update(value);
-                     Console.WriteLine($"    [UPDATE]");
+                     //Console.WriteLine($"    [UPDATE]");
                      return cacheValue;
                  });
 
@@ -63,15 +74,15 @@ namespace InMemoryCache
                 _lifetimeCache.Add(key);
 
                 // debug output
-                Console.WriteLine($"    [CACHE] Cache size : {_cache.Count}/{_cacheSizeLimit}");
-                if (evicted == null)
-                {
-                    Console.WriteLine($"    [OLDEST] Current oldest key : {_lifetimeCache[0]}");
-                }
-                else
-                {
-                    Console.WriteLine($"        [NEXT] Next oldest key : {_lifetimeCache[0]}");
-                }
+                //Console.WriteLine($"    [CACHE] Cache size : {_cache.Count}/{_cacheSizeLimit}");
+                //if (evicted == null)
+                //{
+                //    Console.WriteLine($"    [OLDEST] Current oldest key : {_lifetimeCache[0]}");
+                //}
+                //else
+                //{
+                //    Console.WriteLine($"        [NEXT] Next oldest key : {_lifetimeCache[0]}");
+                //}
             }
         }
 
@@ -80,18 +91,15 @@ namespace InMemoryCache
             lock (_cacheLock)
             {
                 bool got = _cache.TryGetValue(key, out value);
-                if (got == true)
+                if (got == false)
                 {
-                    //value = v.Get();
-                }
-                else
-                {
+                    _misses++;
+                    Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"[MISS] Cache miss on key {key}, key was previously evicted");
-                    //value = default(TValue);
+                    Console.ResetColor();
                 }
                 return got;
             }
-            //throw new NotImplementedException();
         }
     }
 
