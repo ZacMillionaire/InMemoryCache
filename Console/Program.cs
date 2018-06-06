@@ -18,18 +18,26 @@ namespace TestConsole
             var r = new Random(1);
 
             // Bombard the ConcurrentDictionary with 10000 competing AddOrUpdates
-            Parallel.For(0, 1000, i =>
+            Parallel.For(0, 100, i =>
             {
 
                 var index = r.Next(0, 20);
-                mc.AddOrUpdate(index, new TestComplexClass());
 
-                mc.TryGetValue(index, out TestComplexClass insertedValue);
+                var newEntry = new TestComplexClass();
 
-                Console.WriteLine($"Inserted GUID {insertedValue.RandomValue}");
+                mc.AddOrUpdate(index, newEntry);
 
+                Console.WriteLine($"Inserted GUID {index} {newEntry.RandomValue}");
+
+                bool cacheHit = mc.TryGetValue(index, out TestComplexClass insertedValue);
+
+                if (cacheHit == true)
+                {
+                    Console.WriteLine($"[HIT] Inserted GUID {index} {insertedValue.RandomValue}");
+                }
             });
 
+            Console.WriteLine("end");
             Console.ReadKey();
         }
     }

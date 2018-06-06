@@ -11,10 +11,12 @@ namespace InMemoryCache
     public class MemoryCache<TKey, TValue> : ICache<TKey, TValue>
     {
         private readonly int _cacheSizeLimit;
-        private readonly ConcurrentDictionary<TKey, CacheItem<TValue>> _cache;
+        private readonly ConcurrentDictionary<TKey, TValue> _cache;
         private readonly List<TKey> _lifetimeCache;
 
         private readonly object _cacheLock = new object();
+
+
 
         public MemoryCache(int maxCacheElements)
         {
@@ -24,7 +26,7 @@ namespace InMemoryCache
             }
 
             _cacheSizeLimit = maxCacheElements;
-            _cache = new ConcurrentDictionary<TKey, CacheItem<TValue>>();
+            _cache = new ConcurrentDictionary<TKey, TValue>();
             _lifetimeCache = new List<TKey>();
         }
 
@@ -34,69 +36,59 @@ namespace InMemoryCache
             {
                 bool keyExists = _cache.ContainsKey(key);
 
-                TKey evicted = default(TKey);
+                TValue evicted = default(TValue);
+
                 if (keyExists == false && _cache.Count >= _cacheSizeLimit)
                 {
-                    //var oldest = _cache.OrderBy(x => x.Value._modified).First().Key;
                     var oldestByKeyList = _lifetimeCache.First();
-                    evicted = oldestByKeyList;
+                    _cache.TryRemove(oldestByKeyList, out evicted);
+                    Console.WriteLine($"    [EVICT] Evicted oldest key : {oldestByKeyList}");
                     _lifetimeCache.Remove(oldestByKeyList);
-                    //var same = oldest.Equals(oldestByKeyList);
-
-                    //if (same == false)
-                    //{
-                    //    throw new Exception("key mismatch");
-                    //}
                 }
 
-                CacheItem<TValue> cacheValue = new CacheItem<TValue>(value);
+                TValue cacheValue = value;
 
                 _cache.AddOrUpdate(key, cacheValue, (k, existing) =>
                  {
-                     existing.Update(value);
-                     return existing;
+                     // If we've seen the key before, its an update, so remove the old entry
+                     // in our tracking list before we reinsert the key at the end
+                     _lifetimeCache.Remove(key);
+                     //existing.Update(value);
+                     Console.WriteLine($"    [UPDATE]");
+                     return cacheValue;
                  });
 
-                // If this is the first time seein this key,
-                // add the new key to the end of the eviction list
-                // This ensures that old keys will bubble to the top.
-                // I don't like the double add I'm doing here but eh, I'm just
-                // getting it working for now
-                if (keyExists == false)
+                // Add the key to the new list, with the oldest keys eventually bubbling
+                // to the top of the list.
+                _lifetimeCache.Add(key);
+
+                // debug output
+                Console.WriteLine($"    [CACHE] Cache size : {_cache.Count}/{_cacheSizeLimit}");
+                if (evicted == null)
                 {
-                    _lifetimeCache.Add(key);
+                    Console.WriteLine($"    [OLDEST] Current oldest key : {_lifetimeCache.First()}");
                 }
                 else
                 {
-                    // Otherwise remove the old instance of the key and reinsert it
-                    _lifetimeCache.Remove(key);
-                    _lifetimeCache.Add(key);
+                    Console.WriteLine($"        [NEXT] Next oldest key : {_lifetimeCache.First()}");
                 }
-
-                Console.ForegroundColor = ConsoleColor.DarkGreen;
-                Console.WriteLine($"Cache size : {_cache.Count}/{_cacheSizeLimit}");
-                if (evicted.Equals(default(TKey)) == true)
-                {
-                    Console.WriteLine($"Current oldest key : {_lifetimeCache.First()}");
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"Evicted key:{ evicted}, Next oldest key : {_lifetimeCache.First()}");
-                }
-                Console.ResetColor();
-
             }
-
         }
 
         public bool TryGetValue(TKey key, out TValue value)
         {
             lock (_cacheLock)
             {
-                bool got = _cache.TryGetValue(key, out CacheItem<TValue> v);
-                value = v.Get();
-
+                bool got = _cache.TryGetValue(key, out value);
+                if (got == true)
+                {
+                    //value = v.Get();
+                }
+                else
+                {
+                    Console.WriteLine($"[MISS] Cache miss on key {key}, key was previously evicted");
+                    //value = default(TValue);
+                }
                 return got;
             }
             //throw new NotImplementedException();
