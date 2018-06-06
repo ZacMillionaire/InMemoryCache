@@ -12,24 +12,27 @@ namespace TestConsole
         static void Main(string[] args)
         {
             int maxSize = 1000;
+            // Used to control the upper limit of key values, based on a modulus of i in the Parallel.For call
+            // a value higher equal to maxSize means the cache will contain 0 .. maxSize inserts with no evictions,
+            // a value less than maxSize will fill the cache with cacheBucketSize number of items with no evictions
+            // any bucket size above maxSize will create evictions to simulate a competing cache
+            int cacheBucketSize = 1001;
 
             var mc = new MemoryCache<int, TestComplexClass>(maxSize);
 
-            var r = new Random(1);
+            var r = new Random();
 
             // Bombard the ConcurrentDictionary with 10000 competing AddOrUpdates
             Parallel.For(0, 10000, i =>
             {
 
-                var index = r.Next(1, 2000);
-
                 var newEntry = new TestComplexClass();
 
-                mc.AddOrUpdate(i % index, newEntry);
+                mc.AddOrUpdate(i % cacheBucketSize, newEntry);
 
                 //Console.WriteLine($"Inserted GUID {index} {newEntry.RandomValue}");
 
-                bool cacheHit = mc.TryGetValue(i % index, out TestComplexClass insertedValue);
+                bool cacheHit = mc.TryGetValue(i % cacheBucketSize, out TestComplexClass insertedValue);
 
                 if (cacheHit == true)
                 {
