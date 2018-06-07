@@ -40,14 +40,12 @@ namespace InMemoryCache
             {
                 bool keyExists = _cache.ContainsKey(key);
 
-                TValue evicted = default(TValue);
-
                 if (keyExists == false && _cache.Count >= _cacheSizeLimit)
                 {
-                    var oldestByKeyList = _lifetimeCache[0];
-                    _cache.TryRemove(oldestByKeyList, out evicted);
-                    Console.WriteLine($"    [EVICT] Evicted oldest key : {oldestByKeyList}");
-                    _lifetimeCache.Remove(oldestByKeyList);
+                    _cache.TryRemove(_lifetimeCache[0], out TValue evicted);
+                    Console.WriteLine($"[EVICT] Evicted oldest key : {_lifetimeCache[0]}");
+                    _lifetimeCache.Remove(_lifetimeCache[0]);
+                    Console.WriteLine($"    [NEXT] Next oldest key : {_lifetimeCache[0]}");
                     _evictions++;
                 }
 
@@ -75,14 +73,7 @@ namespace InMemoryCache
 
                 // debug output
                 //Console.WriteLine($"    [CACHE] Cache size : {_cache.Count}/{_cacheSizeLimit}");
-                if (evicted == null)
-                {
-                    Console.WriteLine($"    [OLDEST] Current oldest key : {_lifetimeCache[0]}");
-                }
-                else
-                {
-                    Console.WriteLine($"        [NEXT] Next oldest key : {_lifetimeCache[0]}");
-                }
+                //Console.WriteLine($"[OLDEST] Current oldest key : {_lifetimeCache[0]}");
             }
         }
 
