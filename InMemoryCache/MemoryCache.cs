@@ -20,7 +20,7 @@ namespace InMemoryCache
         public int _updates = 0;
         public int _evictions = 0;
         public int _misses = 0;
-
+        public int _refresh = 0;
 
         public MemoryCache(int maxCacheElements)
         {
@@ -46,7 +46,7 @@ namespace InMemoryCache
                 {
                     var oldestByKeyList = _lifetimeCache[0];
                     _cache.TryRemove(oldestByKeyList, out evicted);
-                    //Console.WriteLine($"    [EVICT] Evicted oldest key : {oldestByKeyList}");
+                    Console.WriteLine($"    [EVICT] Evicted oldest key : {oldestByKeyList}");
                     _lifetimeCache.Remove(oldestByKeyList);
                     _evictions++;
                 }
@@ -75,14 +75,14 @@ namespace InMemoryCache
 
                 // debug output
                 //Console.WriteLine($"    [CACHE] Cache size : {_cache.Count}/{_cacheSizeLimit}");
-                //if (evicted == null)
-                //{
-                //    Console.WriteLine($"    [OLDEST] Current oldest key : {_lifetimeCache[0]}");
-                //}
-                //else
-                //{
-                //    Console.WriteLine($"        [NEXT] Next oldest key : {_lifetimeCache[0]}");
-                //}
+                if (evicted == null)
+                {
+                    Console.WriteLine($"    [OLDEST] Current oldest key : {_lifetimeCache[0]}");
+                }
+                else
+                {
+                    Console.WriteLine($"        [NEXT] Next oldest key : {_lifetimeCache[0]}");
+                }
             }
         }
 
@@ -97,6 +97,13 @@ namespace InMemoryCache
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"[MISS] Cache miss on key {key}, key was previously evicted");
                     Console.ResetColor();
+                }
+                else
+                {
+                    _refresh++;
+                    _lifetimeCache.Remove(key);
+                    _lifetimeCache.Add(key);
+                    Console.WriteLine($"    [REFRESHED] Refreshed key : {key}. Oldest is {_lifetimeCache[0]}");
                 }
                 return got;
             }

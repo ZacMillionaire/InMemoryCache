@@ -11,12 +11,12 @@ namespace TestConsole
     {
         static void Main(string[] args)
         {
-            int maxSize = 1000;
+            int maxSize = 60;
             // Used to control the upper limit of key values, based on a modulus of i in the Parallel.For call
             // a value higher equal to maxSize means the cache will contain 0 .. maxSize inserts with no evictions,
             // a value less than maxSize will fill the cache with cacheBucketSize number of items with no evictions
             // any bucket size above maxSize will create evictions to simulate a competing cache
-            int cacheBucketSize = 1001;
+            int cacheBucketSize = 61;
 
             var mc = new MemoryCache<int, TestComplexClass>(maxSize);
 
@@ -42,6 +42,7 @@ namespace TestConsole
 
             Console.WriteLine($"Cache stats: Inserts: {mc._inserts}, Updates: {mc._updates}, " +
                 $"Evictions: {mc._evictions}, Misses: {mc._misses}, Total caches: {mc._inserts + mc._updates}, " +
+                $"Refreshes: {mc._refresh}, " +
                 $"Total cache items: {mc._inserts - mc._evictions}"); // will match the number of items in the cache, ie, (mc._inserts - mc._evictions) == [the count of the internal cache]
             Console.ReadKey();
         }
