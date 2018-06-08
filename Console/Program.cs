@@ -40,10 +40,10 @@ namespace TestConsole
                 }
             });
 
-            Console.WriteLine($"Cache stats: Inserts: {mc._inserts}, Updates: {mc._updates}, " +
-                $"Evictions: {mc._evictions}, Misses: {mc._misses}, Total caches: {mc._inserts + mc._updates}, " +
-                $"Refreshes: {mc._refresh}, " +
-                $"Total cache items: {mc._inserts - mc._evictions}"); // will match the number of items in the cache, ie, (mc._inserts - mc._evictions) == [the count of the internal cache]
+            Console.WriteLine($"Cache stats: Inserts: {mc.Inserts}, Updates: {mc.Updates}, " +
+                $"Evictions: {mc.Evictions}, Misses: {mc.Misses}, Total caches: {mc.Inserts + mc.Updates}, " +
+                $"Refreshes: {mc.Refresh}, " +
+                $"Total cache items: {mc.Inserts - mc.Evictions}"); // will match the number of items in the cache, ie, (mc._inserts - mc._evictions) == [the count of the internal cache]
             Console.ReadKey();
         }
     }
