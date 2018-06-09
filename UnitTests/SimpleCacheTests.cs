@@ -175,12 +175,40 @@ namespace UnitTests {
 
         }
 
+        /// <summary>
+        /// Wrapper for Parallel.For
+        /// <para>
+        /// Calls AddOrUpdate on the given cache as many times as timesToRun, using the specified key and value generation functions.
+        /// </para>
+        /// </summary>
+        /// <typeparam name="TKey"></typeparam>
+        /// <typeparam name="TValue"></typeparam>
+        /// <param name="timesToRun"></param>
+        /// <param name="cache"></param>
+        /// <param name="keyFunction"></param>
+        /// <param name="objectToInsertFunction"></param>
         private void ParallelAddOrUpdateHelper<TKey, TValue>(int timesToRun, MemoryCache<TKey, TValue> cache, Func<TKey> keyFunction, Func<TValue> objectToInsertFunction) {
             Parallel.For(0, timesToRun, i => {
                 cache.AddOrUpdate(keyFunction(), objectToInsertFunction());
             });
         }
 
+        /// <summary>
+        /// Wrapper for Parallel.For
+        /// <para>
+        /// Calls AddOrUpdate on the given cache as many times as timesToRun, using the specified key and value generation functions.
+        /// </para>
+        /// <para>
+        /// Additionally runs an action after the AddOrUpdate
+        /// </para>
+        /// </summary>
+        /// <typeparam name="TKey"></typeparam>
+        /// <typeparam name="TValue"></typeparam>
+        /// <param name="timesToRun"></param>
+        /// <param name="cache"></param>
+        /// <param name="keyFunction"></param>
+        /// <param name="objectToInsertFunction"></param>
+        /// <param name="postAction"></param>
         private void ParallelAddOrUpdateHelperWithPostAction<TKey, TValue>(int timesToRun,
             MemoryCache<TKey, TValue> cache,
             Func<TKey> keyFunction,

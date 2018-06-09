@@ -10,6 +10,10 @@ namespace InMemoryCache {
     public class MemoryCache<TKey, TValue> : ICache<TKey, TValue> {
         private readonly int _cacheSizeLimit;
         private readonly ConcurrentDictionary<TKey, TValue> _cache;
+        // Lazy storage for cached items lifetime, used to provide a quick method for key eviction based on access time.
+        // Keys are added to the end of this list, with oldest keys rising to the "top" or index 0. Updates and cache hits will refresh
+        // the age of a key, reinserting the key at the end of the list.
+        // For the most part though I treat this as an array.
         private readonly List<TKey> _lifetimeCache;
 
         private readonly object _cacheLock = new object();
@@ -23,6 +27,7 @@ namespace InMemoryCache {
 #endif
 
         public int CacheSize => _cache.Count;
+        // Thread safe retrieval of the current age of keys.
         public TKey[] KeysByAge
         {
             get
@@ -33,6 +38,10 @@ namespace InMemoryCache {
             }
         }
 
+        /// <summary>
+        /// Creates a new MemoryCache, bounded by maxCacheElements
+        /// </summary>
+        /// <param name="maxCacheElements">Must be greater than 0</param>
         public MemoryCache(int maxCacheElements) {
             if(maxCacheElements == 0) {
                 throw new ArgumentOutOfRangeException("maxCacheElements must be greater than 0");
@@ -40,7 +49,7 @@ namespace InMemoryCache {
 
             _cacheSizeLimit = maxCacheElements;
             _cache = new ConcurrentDictionary<TKey, TValue>();
-            _lifetimeCache = new List<TKey>();
+            _lifetimeCache = new List<TKey>(_cacheSizeLimit);
         }
 
         /// <summary>
