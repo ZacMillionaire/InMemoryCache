@@ -135,7 +135,7 @@ namespace UnitTests {
 #if DEBUG
             // Verify output of inserts.
             // As Parallel will try to do as much as possible at once, the oldest keys should always be from at least itemsToInsert - capacity .. itemsToInsert
-            ParallelAddOrUpdateHelperWithPostAction<int, SimpleTestClass>(itemsToInsert, memcache, () => { return keyStart++; }, () => { return new SimpleTestClass(); },
+            DEBUG_ParallelAddOrUpdateHelperWithPostAction<int, SimpleTestClass>(itemsToInsert, memcache, () => { return keyStart++; }, () => { return new SimpleTestClass(); },
                 (i) => {
                     Console.WriteLine($"i:{i} | {String.Join(",", memcache.KeysByAge)}, inserted {keyStart}");
                 });
@@ -190,6 +190,104 @@ namespace UnitTests {
             Assert.AreEqual(capacity - 1, Array.IndexOf(cacheLifetimes, keyOfInterest));
 
         }
+
+        /// <summary>
+        /// Validates that the cache is by reference, and that updating the value stored in the cache directly
+        /// _does not_ refresh the lifetime, but updating it with the changed reference _does_
+        /// </summary>
+        [TestMethod]
+        public void Cache_UpdateReferenceValue_NotCache() {
+            int capacity = 5;
+            int keyStart = 1; // start at the second index as we control the first for this test
+            int itemsToInsert = 4; // Insert 4 additional values
+            int keyOfInterest = 0; // the specific key in the cache to test against
+
+            var testValue = new SimpleTestClass();
+
+            var memcache = new MemoryCache<int, SimpleTestClass>(capacity);
+            memcache.AddOrUpdate(keyOfInterest, testValue);
+
+            ParallelAddOrUpdateHelper(itemsToInsert, memcache, () => { return keyStart++; }, () => { return new SimpleTestClass(); });
+
+            // Change the value of the cached value directly, and assert that it is still the _oldest_ cached item
+            // ie: it is at index 0 within the array returned from KeysByAge
+            var cacheLifetimesBeforeChange = memcache.KeysByAge;
+            var originalCacheImportantValue = testValue.ImportantValue;
+            testValue.ImportantValue = Guid.NewGuid();
+            var modifiedCacheImportantValue = testValue.ImportantValue;
+
+            // Assert that the first index is still our original cached item
+            Assert.AreEqual(0, Array.IndexOf(cacheLifetimesBeforeChange, keyOfInterest));
+
+            memcache.AddOrUpdate(keyOfInterest, testValue);
+            var cacheLifetimesAfterChange = memcache.KeysByAge;
+
+            // Assert that after doing AddOrUpdate with our modified value, the age is correctly at index 4
+            // and that the value stored in the cache reflect the updated value, not the original
+            Assert.AreEqual(capacity - 1, Array.IndexOf(cacheLifetimesAfterChange, keyOfInterest));
+            memcache.TryGetValue(keyOfInterest, out SimpleTestClass updatedValue);
+            Assert.AreEqual(modifiedCacheImportantValue, updatedValue.ImportantValue);
+            Assert.AreNotEqual(originalCacheImportantValue, updatedValue.ImportantValue);
+        }
+
+        /// <summary>
+        /// Tests that TryGetValue will return default(int) if the key is not found
+        /// </summary>
+        [TestMethod]
+        public void Test_CacheMiss_ShouldReturn_False_DefaultPrimitive() {
+            int capacity = 1;
+            int keyStart = 0; // start at the second index as we control the first for this test
+            int itemsToInsert = 5;
+            int keyOfInterest = 0; // the specific key in the cache to test against
+
+            var memcache = new MemoryCache<int, int>(capacity);
+            memcache.AddOrUpdate(keyOfInterest, 1);
+
+            ParallelAddOrUpdateHelper(itemsToInsert, memcache, () => { return keyStart++; }, () => { return keyStart; });
+
+            var cacheHit = memcache.TryGetValue(keyOfInterest, out int cacheValue);
+            Assert.AreEqual(false, cacheHit);
+            Assert.AreEqual(default(int), cacheValue); // Primitives and structs should return their respective default values
+        }
+
+        /// <summary>
+        /// Tests that TryGetValue will return default(TValue) if the key is not found
+        /// </summary>
+        [TestMethod]
+        public void Test_CacheMiss_ShouldReturn_False_DefaultSimpleTestClass() {
+            int capacity = 1;
+            int keyStart = 0; // start at the second index as we control the first for this test
+            int itemsToInsert = 5;
+            int keyOfInterest = 0; // the specific key in the cache to test against
+
+            var memcache = new MemoryCache<int, SimpleTestClass>(capacity);
+
+            ParallelAddOrUpdateHelper(itemsToInsert, memcache, () => { return keyStart++; }, () => { return new SimpleTestClass(); });
+
+            var cacheHit = memcache.TryGetValue(keyOfInterest, out SimpleTestClass cacheValue);
+            Assert.AreEqual(false, cacheHit);
+            Assert.AreEqual(default(SimpleTestClass), cacheValue); // For complex classes, default(T) should return null
+        }
+
+        /// <summary>
+        /// Tests that TryGetValue will return default(TValue) if the key is not found
+        /// </summary>
+        [TestMethod]
+        public void Test_GetNonExisting_Key_ShouldBe_DefaultSimpleTestClass() {
+            int capacity = 1;
+            int keyStart = 0; // start at the second index as we control the first for this test
+            int itemsToInsert = 5;
+            int keyOfInterest = 100; // the specific key in the cache to test against, far beyond what would exist
+
+            var memcache = new MemoryCache<int, SimpleTestClass>(capacity);
+
+            ParallelAddOrUpdateHelper(itemsToInsert, memcache, () => { return keyStart++; }, () => { return new SimpleTestClass(); });
+
+            var cacheHit = memcache.TryGetValue(keyOfInterest, out SimpleTestClass cacheValue);
+            Assert.AreEqual(false, cacheHit);
+            Assert.AreEqual(default(SimpleTestClass), cacheValue); // For complex classes, default(T) should return null
+        }
+
 
         /// <summary>
         /// Wrapper for Parallel.For

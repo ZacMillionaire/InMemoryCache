@@ -85,7 +85,12 @@ namespace InMemoryCache {
 #endif
                     _lifetimeCache.Remove(_lifetimeCache[0]);
 #if DEBUG
-                    Console.WriteLine($"    [NEXT] Next oldest key : {_lifetimeCache[0]}");
+                    // Its possible to have a capcity of 1, so the remove above may leave an empty lifetimeCache.
+                    // With debug builds this will cause an exception to be thrown, so guard against it.
+                    // This will not affect release or other builds in any way.
+                    if(_lifetimeCache.Count > 0) {
+                        Console.WriteLine($"    [NEXT] Next oldest key : {_lifetimeCache[0]}");
+                    }
                     // For stat tracking, increment the number of keys evicted
                     Evictions++;
 #endif
