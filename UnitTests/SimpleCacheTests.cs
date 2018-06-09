@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using InMemoryCache;
@@ -82,7 +83,7 @@ namespace UnitTests {
 
             // Assert that the keyOfInterest is the youngest now
             var updatedKeyAge = memcache.KeysByAge;
-            Assert.AreEqual(capacity - 1, Array.IndexOf(updatedKeyAge, keyOfInterest));
+            Assert.IsTrue(( capacity - 2 <= Array.IndexOf(updatedKeyAge, keyOfInterest) ));
         }
 
         /// <summary>
@@ -127,16 +128,31 @@ namespace UnitTests {
             int capacity = 5;
             int itemsToInsert = 50; // Insert more values than capacity to ensure we get an eviction
             int keyStart = 0;
-            int keyOfInterest = 1; // the specific key in the cache to test against
+            int keyOfInterest = 5; // the specific key in the cache to test against
 
             var memcache = new MemoryCache<int, SimpleTestClass>(capacity);
 
+#if DEBUG
+            // Verify output of inserts.
+            // As Parallel will try to do as much as possible at once, the oldest keys should always be from at least itemsToInsert - capacity .. itemsToInsert
+            ParallelAddOrUpdateHelperWithPostAction<int, SimpleTestClass>(itemsToInsert, memcache, () => { return keyStart++; }, () => { return new SimpleTestClass(); },
+                (i) => {
+                    Console.WriteLine($"i:{i} | {String.Join(",", memcache.KeysByAge)}, inserted {keyStart}");
+                });
+            Console.WriteLine($"final cache ages:{String.Join(",", memcache.KeysByAge)}");
+#else
             // Insert as many entries as needed
             ParallelAddOrUpdateHelper<int, SimpleTestClass>(itemsToInsert, memcache, () => { return keyStart++; }, () => { return new SimpleTestClass(); });
+#endif
 
-            // Get keyOfInterest to renew its lifetime
+            Console.WriteLine($"keyOfInterest: {keyOfInterest}, {String.Join(",", memcache.KeysByAge)}");
+            // try get an expired cache item
             bool cacheHit = memcache.TryGetValue(keyOfInterest, out SimpleTestClass cachedValue);
 
+            if(cacheHit == true) {
+                Console.WriteLine($"keyOfInterest: {keyOfInterest}, {String.Join(",", memcache.KeysByAge)}");
+                throw new Exception();
+            }
             // Assert that getting the value updated its lifetime, and that the value did not change
             Assert.AreEqual(false, cacheHit);
             Assert.AreEqual(null, cachedValue);
@@ -188,9 +204,11 @@ namespace UnitTests {
         /// <param name="keyFunction"></param>
         /// <param name="objectToInsertFunction"></param>
         private void ParallelAddOrUpdateHelper<TKey, TValue>(int timesToRun, MemoryCache<TKey, TValue> cache, Func<TKey> keyFunction, Func<TValue> objectToInsertFunction) {
-            Parallel.For(0, timesToRun, i => {
+            var tasks = new List<Task>(timesToRun);
+            for(int i = 0; i < timesToRun; i++) {
                 cache.AddOrUpdate(keyFunction(), objectToInsertFunction());
-            });
+            }
+            Task.WaitAll(tasks.ToArray());
         }
 
         /// <summary>
@@ -215,10 +233,51 @@ namespace UnitTests {
             Func<TValue> objectToInsertFunction,
             Action postAction
         ) {
-            Parallel.For(0, timesToRun, i => {
+            var tasks = new List<Task>(timesToRun);
+            for(int i = 0; i < timesToRun; i++) {
                 cache.AddOrUpdate(keyFunction(), objectToInsertFunction());
                 postAction();
-            });
+            }
+            Task.WaitAll(tasks.ToArray());
+        }
+
+        /// <summary>
+        /// This method was to used to track down an issue using Parallel.For in a test context.
+        /// </summary>
+        /// <typeparam name="TKey"></typeparam>
+        /// <typeparam name="TValue"></typeparam>
+        /// <param name="timesToRun"></param>
+        /// <param name="cache"></param>
+        /// <param name="keyFunction"></param>
+        /// <param name="objectToInsertFunction"></param>
+        /// <param name="postAction"></param>
+        private void DEBUG_ParallelAddOrUpdateHelperWithPostAction<TKey, TValue>(int timesToRun,
+            MemoryCache<TKey, TValue> cache,
+            Func<TKey> keyFunction,
+            Func<TValue> objectToInsertFunction,
+            Action<int> postAction
+        ) {
+
+            // using Parallel.For "amusingly" enough caused the cache to occasionally be in a bad state when asserting in some cases,
+            // discovered when trying to Assert that a cache miss _had_ happened, but the thread executing it wasn't reflective
+            // of the actual state of the cache.
+            // Technically the below code should be the same as the above, however there can be a state where the test will
+            // reach the stage to attempt a cache miss, and get in at a moment where the Parallel.For hasn't finished but released a lock,
+            // resulting in the AddOrUpdate's still running, while the test is completed.
+            // Using Task.WaitAll ensures that everything _is_ finished.
+            /*
+              Parallel.For(0, timesToRun, i => {
+                  cache.AddOrUpdate(keyFunction(), objectToInsertFunction());
+                  postAction(i);
+              });*/
+
+            var tasks = new List<Task>(timesToRun);
+            for(int i = 0; i < timesToRun; i++) {
+                cache.AddOrUpdate(keyFunction(), objectToInsertFunction());
+                postAction(i); // Run an action, passing the current iteration to it
+            }
+            Task.WaitAll(tasks.ToArray());
+
         }
     }
 
