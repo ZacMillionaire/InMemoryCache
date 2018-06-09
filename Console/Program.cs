@@ -5,12 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace TestConsole
-{
-    class Program
-    {
-        static void Main(string[] args)
-        {
+namespace TestConsole {
+    class Program {
+        static void Main(string[] args) {
             int maxSize = 60;
             // Used to control the upper limit of key values, based on a modulus of i in the Parallel.For call
             // a value higher equal to maxSize means the cache will contain 0 .. maxSize inserts with no evictions,
@@ -23,8 +20,7 @@ namespace TestConsole
             var r = new Random();
 
             // Bombard the ConcurrentDictionary with 10000 competing AddOrUpdates
-            Parallel.For(0, 10000, i =>
-            {
+            Parallel.For(0, 10000, i => {
 
                 var newEntry = new TestComplexClass();
 
@@ -34,27 +30,26 @@ namespace TestConsole
 
                 bool cacheHit = mc.TryGetValue(i % cacheBucketSize, out TestComplexClass insertedValue);
 
-                if (cacheHit == true)
-                {
+                if(cacheHit == true) {
                     // Console.WriteLine($"[HIT] Inserted GUID {index} {insertedValue.RandomValue}");
                 }
             });
 
+#if DEBUG
             Console.WriteLine($"Cache stats: Inserts: {mc.Inserts}, Updates: {mc.Updates}, " +
                 $"Evictions: {mc.Evictions}, Misses: {mc.Misses}, Total caches: {mc.Inserts + mc.Updates}, " +
                 $"Refreshes: {mc.Refresh}, " +
                 $"Total cache items: {mc.Inserts - mc.Evictions}"); // will match the number of items in the cache, ie, (mc._inserts - mc._evictions) == [the count of the internal cache]
+#endif
             Console.ReadKey();
         }
     }
 
-    public class TestComplexClass
-    {
+    public class TestComplexClass {
         public DateTime Now { get; set; }
         public Guid RandomValue { get; set; }
 
-        public TestComplexClass()
-        {
+        public TestComplexClass() {
             Now = DateTime.Now;
             RandomValue = Guid.NewGuid();
         }
